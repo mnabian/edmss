@@ -154,7 +154,7 @@ def edm_sampler(
         t_hat = net.round_sigma(t_cur + gamma * t_cur)
         x_hat = x_cur + (t_hat**2 - t_cur**2).sqrt() * S_noise * randn_like(x_cur)
             
-        # Euler step.
+        # Euler step. Perform patching operation on score tensor if patch-based generation is used
         # denoised = net(x_hat, t_hat, class_labels).to(torch.float64)    #x_lr
         
         if (patch_shape!=img_shape):
