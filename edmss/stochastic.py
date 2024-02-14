@@ -1,23 +1,13 @@
-# Copyright (c) 2023, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# Copyright (c) 2022, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 #
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-
+# This work is licensed under a Creative Commons
+# Attribution-NonCommercial-ShareAlike 4.0 International License.
+# You should have received a copy of the license along with this
+# work. If not, see http://creativecommons.org/licenses/by-nc-sa/4.0/
 
 import numpy as np
 import torch
 import math
-
-# ruff: noqa: E731
 
 def image_batching(input, 
         img_shape_x, 
@@ -107,29 +97,51 @@ def image_fuse(input,
 
 
 def edm_sampler(
-    net, latents, img_lr, patch_shape, img_shape, overlap_pix = 4, boundary_pix = 2, class_labels=None, randn_like=torch.randn_like,
-    num_steps=18, sigma_min=0.002, sigma_max=800, rho=7,
-    S_churn=0, S_min=0, S_max=float('inf'), S_noise=1,
-):   #num_steps=18, sigma_max=80, igma_min=0.002
+    net,
+    latents,
+    img_lr,
+    img_shape, 
+    overlap_pix = 4, 
+    boundary_pix = 2, 
+    class_labels=None,
+    randn_like=torch.randn_like,
+    num_steps=18,
+    sigma_min=0.002,
+    sigma_max=800,
+    rho=7,
+    S_churn=0,
+    S_min=0,
+    S_max=float("inf"),
+    S_noise=1,
+):  # num_steps=18, sigma_max=80, igma_min=0.002
     # Adjust noise levels based on what's supported by the network.
+    "Proposed EDM sampler (Algorithm 2) with minor changes to enable super-resolution."
     sigma_min = max(sigma_min, net.sigma_min)
     sigma_max = min(sigma_max, net.sigma_max)
-    
+
     # Time step discretization.
     step_indices = torch.arange(num_steps, dtype=torch.float64, device=latents.device)
-    t_steps = (sigma_max ** (1 / rho) + step_indices / (num_steps - 1) * (sigma_min ** (1 / rho) - sigma_max ** (1 / rho))) ** rho
-    t_steps = torch.cat([net.round_sigma(t_steps), torch.zeros_like(t_steps[:1])]) # t_N = 0
+    t_steps = (
+        sigma_max ** (1 / rho)
+        + step_indices
+        / (num_steps - 1)
+        * (sigma_min ** (1 / rho) - sigma_max ** (1 / rho))
+    ) ** rho
+    t_steps = torch.cat(
+        [net.round_sigma(t_steps), torch.zeros_like(t_steps[:1])]
+    )  # t_N = 0
 
-    #conditioning
+    # conditioning
     x_lr = img_lr
     batch_size = img_lr.shape[0]
-
+        
     # global map interpolation
     input_interp = torch.nn.functional.interpolate(img_lr[:,0:12], (patch_shape, patch_shape), mode='bilinear') 
 
     # input batching
     if (patch_shape!=img_shape):
         x_lr = image_batching(x_lr, img_shape, img_shape, patch_shape, patch_shape, batch_size, overlap_pix, boundary_pix, input_interp)
+            
     # Main sampling loop.
     x_next = latents.to(torch.float64) * t_steps[0]   
     for i, (t_cur, t_next) in enumerate(zip(t_steps[:-1], t_steps[1:])): # 0, ..., N-1
