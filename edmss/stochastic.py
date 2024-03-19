@@ -32,7 +32,7 @@ def image_batching(input,
     input_padded = image_padding(input)
     patch_num = patch_num_x*patch_num_y
     if input_interp is not None:
-        output = torch.zeros(patch_num*batch_size, input.shape[1]*2-100, patch_shape_x, patch_shape_y).cuda()
+        output = torch.zeros(patch_num*batch_size, input.shape[1]+input_interp.shape[1], patch_shape_x, patch_shape_y).cuda()
     else:
         output = torch.zeros(patch_num*batch_size, input.shape[1], patch_shape_x, patch_shape_y).cuda() 
     for x_index in range(patch_num_x):
@@ -93,7 +93,7 @@ def image_fuse(input,
 
 def edm_sampler(
     net, latents, img_lr, class_labels=None, randn_like=torch.randn_like,
-    patch_shape=448, img_shape=448, mean_hr=None,  overlap_pix = 4, boundary_pix = 2, gridtype = 'sinusoidal', 
+    patch_shape=448, img_shape=448, mean_hr=None,  overlap_pix = 4, boundary_pix = 2, gridtype = 'sinusoidal', in_variable_num = 12,
     num_steps=18, sigma_min=0.002, sigma_max=800, rho=7,
     S_churn=0, S_min=0, S_max=float('inf'), S_noise=1,
 ):   #num_steps=18, sigma_max=80, igma_min=0.002
@@ -110,11 +110,11 @@ def edm_sampler(
     #conditioning
     
     batch_size = img_lr.shape[0]
-    input_interp = torch.nn.functional.interpolate(img_lr[:,0:12], (patch_shape, patch_shape), mode='bilinear') 
+    input_interp = torch.nn.functional.interpolate(img_lr[:,0:in_variable_num], (patch_shape, patch_shape), mode='bilinear') 
     # 12 input variable + 4 positional embedding, need to optimize
 
-    if img_lr.shape[1] != 16:    
-        x_lr = torch.cat((img_lr[:,0:12],img_lr[:,16:]), axis=1)
+    if img_lr.shape[1] != in_variable_num + 4:    
+        x_lr = torch.cat((img_lr[:,0:in_variable_num],img_lr[:,in_variable_num + 4:]), axis=1)
     else:
         x_lr = img_lr
     
