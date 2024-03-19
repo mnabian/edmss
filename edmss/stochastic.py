@@ -111,7 +111,11 @@ def edm_sampler(
     
     batch_size = img_lr.shape[0]
     input_interp = torch.nn.functional.interpolate(img_lr[:,0:12], (patch_shape, patch_shape), mode='bilinear') 
-    x_lr = torch.cat((img_lr[:,0:12],img_lr[:,16:]), axis=1)
+    # 12 input variable + 4 positional embedding, need to optimize
+    if img_lr.shape[0] != 16:    
+        x_lr = torch.cat((img_lr[:,0:12],img_lr[:,16:]), axis=1)
+    else:
+        x_lr = img_lr
     
     # input padding
     if (patch_shape!=img_shape):
