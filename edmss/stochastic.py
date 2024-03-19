@@ -92,7 +92,7 @@ def image_fuse(input,
 
 
 def edm_sampler(
-    net, latents, img_lr, patch_shape=448, img_shape=448, mean_hr=None,  overlap_pix = 4, boundary_pix = 2, gridtype = 'sinusoidal',class_labels=None, randn_like=torch.randn_like,
+    net, latents, img_lr, patch_shape=448, img_shape=448, mean_hr=None,  overlap_pix = 4, boundary_pix = 2, gridtype = 'sinusoidal', class_labels=None, randn_like=torch.randn_like,
     num_steps=18, sigma_min=0.002, sigma_max=800, rho=7,
     S_churn=0, S_min=0, S_max=float('inf'), S_noise=1,
 ):   #num_steps=18, sigma_max=80, igma_min=0.002
@@ -115,8 +115,9 @@ def edm_sampler(
     # input padding
     if (patch_shape!=img_shape):
         x_lr = image_batching(x_lr, img_shape, img_shape, patch_shape, patch_shape, batch_size, overlap_pix, boundary_pix, input_interp)
-        mean_hr = image_batching(mean_hr, img_shape, img_shape, patch_shape, patch_shape, batch_size, overlap_pix, boundary_pix).expand(x_lr.shape[0], -1, -1, -1)
-        x_lr = torch.cat((mean_hr, x_lr), dim=1)
+        if mean_hr:
+                mean_hr = image_batching(mean_hr, img_shape, img_shape, patch_shape, patch_shape, batch_size, overlap_pix, boundary_pix).expand(x_lr.shape[0], -1, -1, -1)
+                x_lr = torch.cat((mean_hr, x_lr), dim=1)
     # Main sampling loop.
     x_next = latents.to(torch.float64) * t_steps[0]   
     for i, (t_cur, t_next) in enumerate(zip(t_steps[:-1], t_steps[1:])): # 0, ..., N-1
