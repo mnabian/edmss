@@ -92,7 +92,8 @@ def image_fuse(input,
 
 
 def edm_sampler(
-    net, latents, img_lr, patch_shape=448, img_shape=448, mean_hr=None,  overlap_pix = 4, boundary_pix = 2, gridtype = 'sinusoidal', class_labels=None, randn_like=torch.randn_like,
+    net, latents, img_lr, class_labels=None, randn_like=torch.randn_like,
+    patch_shape=448, img_shape=448, mean_hr=None,  overlap_pix = 4, boundary_pix = 2, gridtype = 'sinusoidal', 
     num_steps=18, sigma_min=0.002, sigma_max=800, rho=7,
     S_churn=0, S_min=0, S_max=float('inf'), S_noise=1,
 ):   #num_steps=18, sigma_max=80, igma_min=0.002
