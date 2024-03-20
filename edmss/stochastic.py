@@ -98,6 +98,8 @@ def edm_sampler(
     S_churn=0, S_min=0, S_max=float('inf'), S_noise=1,
 ):   #num_steps=18, sigma_max=80, igma_min=0.002
     # Adjust noise levels based on what's supported by the network.
+
+    print(torch.sum(latents), torch.sum(img_lr), class_labels, patch_shape, img_shape, mean_hr, overlap_pix, boundary_pix, gridtype, in_variable_num)
     sigma_min = max(sigma_min, net.sigma_min)
     sigma_max = min(sigma_max, net.sigma_max)
         
