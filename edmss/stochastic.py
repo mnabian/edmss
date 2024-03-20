@@ -139,14 +139,14 @@ def edm_sampler(
             x_hat_batch = image_batching(x_hat, img_shape, img_shape, patch_shape, patch_shape, batch_size, overlap_pix, boundary_pix)
         else:
             x_hat_batch = x_hat
-        print("number of NAN before network: ", torch.sum(torch.isnan(x_hat_batch)))
+        print("number of NAN before network: ", torch.sum(x_hat_batch))
         denoised = net(x_hat_batch, x_lr, t_hat, class_labels).to(torch.float64)
-        print("number of NAN after network: ", torch.sum(torch.isnan(denoised)))
+        print("number of NAN after network: ", torch.sum(x_hat_batch))
         if (patch_shape!=img_shape):
             denoised = image_fuse(denoised, img_shape, img_shape, patch_shape, patch_shape, batch_size, overlap_pix, boundary_pix)     
         d_cur = (x_hat - denoised) / t_hat
         x_next = x_hat + (t_next - t_hat) * d_cur
-        print("number of NAN in x_next: ", torch.sum(torch.isnan(x_next)))
+        print("number of NAN in x_next: ", torch.sum(x_hat_batch))
                     
         # Apply 2nd order correction.
         if i < num_steps - 1:
