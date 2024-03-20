@@ -112,9 +112,8 @@ def edm_sampler(
     #conditioning
     
     batch_size = img_lr.shape[0]
-    input_interp = torch.nn.functional.interpolate(img_lr[:,0:in_variable_num], (patch_shape, patch_shape), mode='bilinear') 
+    
     # 12 input variable + 4 positional embedding, need to optimize
-
     if img_lr.shape[1] != in_variable_num + 4:    
         x_lr = torch.cat((img_lr[:,0:in_variable_num],img_lr[:,in_variable_num + 4:]), axis=1)
     else:
@@ -122,6 +121,7 @@ def edm_sampler(
     
     # input padding
     if (patch_shape!=img_shape):
+        input_interp = torch.nn.functional.interpolate(img_lr[:,0:in_variable_num], (patch_shape, patch_shape), mode='bilinear') 
         x_lr = image_batching(x_lr, img_shape, img_shape, patch_shape, patch_shape, batch_size, overlap_pix, boundary_pix, input_interp)
         if mean_hr is not None:
                 mean_hr = image_batching(mean_hr, img_shape, img_shape, patch_shape, patch_shape, batch_size, overlap_pix, boundary_pix).expand(x_lr.shape[0], -1, -1, -1)
@@ -143,12 +143,12 @@ def edm_sampler(
             x_hat_batch = x_hat
         print("sum before network: ", torch.sum(x_hat_batch))
         denoised = net(x_hat_batch, x_lr, t_hat, class_labels).to(torch.float64)
-        print("sum after network: ", torch.sum(x_hat_batch))
+        print("sum after network: ", torch.sum(denoised))
         if (patch_shape!=img_shape):
             denoised = image_fuse(denoised, img_shape, img_shape, patch_shape, patch_shape, batch_size, overlap_pix, boundary_pix)     
         d_cur = (x_hat - denoised) / t_hat
         x_next = x_hat + (t_next - t_hat) * d_cur
-        print("sum in x_next: ", torch.sum(x_hat_batch))
+        print("sum in x_next: ", torch.sum(x_next))
                     
         # Apply 2nd order correction.
         if i < num_steps - 1:
