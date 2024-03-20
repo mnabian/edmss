@@ -99,10 +99,12 @@ def edm_sampler(
 ):   #num_steps=18, sigma_max=80, igma_min=0.002
     # Adjust noise levels based on what's supported by the network.
     sigma_min = max(sigma_min, net.sigma_min)
+    sigma_max = min(sigma_max, net.sigma_max)
+        
     if gridtype == "learnable":
         pos_embd = torch.permute(net.model.pos_embd, (2, 1, 0)).expand(img_lr.shape[0], -1, -1, -1)          
         img_lr = torch.cat((img_lr, pos_embd),dim=1)  
-    #sigma_max = min(sigma_max, net.sigma_max)
+    
     # Time step discretization.
     step_indices = torch.arange(num_steps, dtype=torch.float64, device=latents.device)
     t_steps = (sigma_max ** (1 / rho) + step_indices / (num_steps - 1) * (sigma_min ** (1 / rho) - sigma_max ** (1 / rho))) ** rho
@@ -139,14 +141,14 @@ def edm_sampler(
             x_hat_batch = image_batching(x_hat, img_shape, img_shape, patch_shape, patch_shape, batch_size, overlap_pix, boundary_pix)
         else:
             x_hat_batch = x_hat
-        print("number of NAN before network: ", torch.sum(x_hat_batch))
+        print("sum before network: ", torch.sum(x_hat_batch))
         denoised = net(x_hat_batch, x_lr, t_hat, class_labels).to(torch.float64)
-        print("number of NAN after network: ", torch.sum(x_hat_batch))
+        print("sum after network: ", torch.sum(x_hat_batch))
         if (patch_shape!=img_shape):
             denoised = image_fuse(denoised, img_shape, img_shape, patch_shape, patch_shape, batch_size, overlap_pix, boundary_pix)     
         d_cur = (x_hat - denoised) / t_hat
         x_next = x_hat + (t_next - t_hat) * d_cur
-        print("number of NAN in x_next: ", torch.sum(x_hat_batch))
+        print("sum in x_next: ", torch.sum(x_hat_batch))
                     
         # Apply 2nd order correction.
         if i < num_steps - 1:
