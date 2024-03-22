@@ -143,14 +143,13 @@ def edm_sampler(
             x_hat_batch = image_batching(x_hat, img_shape, img_shape, patch_shape, patch_shape, batch_size, overlap_pix, boundary_pix)
         else:
             x_hat_batch = x_hat
-        print("sum before network: ", torch.sum(x_hat_batch), "x_lr", torch.sum(x_lr), "t_hat", t_hat, "class_labels", class_labels)
+        
         denoised = net(x_hat_batch, x_lr, t_hat, class_labels).to(torch.float64)
-        print("sum after network: ", torch.sum(denoised))
+
         if (patch_shape!=img_shape):
             denoised = image_fuse(denoised, img_shape, img_shape, patch_shape, patch_shape, batch_size, overlap_pix, boundary_pix)     
         d_cur = (x_hat - denoised) / t_hat
         x_next = x_hat + (t_next - t_hat) * d_cur
-        print("sum in x_next: ", torch.sum(x_next))
                     
         # Apply 2nd order correction.
         if i < num_steps - 1:
