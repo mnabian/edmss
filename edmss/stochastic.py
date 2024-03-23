@@ -124,7 +124,6 @@ def edm_sampler(
     if (patch_shape!=img_shape):
         input_interp = torch.nn.functional.interpolate(img_lr[:,0:in_variable_num], (patch_shape, patch_shape), mode='bilinear') 
         x_lr = image_batching(x_lr, img_shape, img_shape, patch_shape, patch_shape, batch_size, overlap_pix, boundary_pix, input_interp)
-        print(input_interp.shape, x_lr.shape)
         if mean_hr is not None:
                 mean_hr = image_batching(mean_hr, img_shape, img_shape, patch_shape, patch_shape, batch_size, overlap_pix, boundary_pix).expand(x_lr.shape[0], -1, -1, -1)
                 x_lr = torch.cat((mean_hr, x_lr), dim=1)
