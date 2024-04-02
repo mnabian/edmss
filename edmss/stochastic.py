@@ -93,7 +93,7 @@ def image_fuse(input,
 
 def edm_sampler(
     net, latents, img_lr, class_labels=None, randn_like=torch.randn_like,
-    patch_shape=448, img_shape=448, mean_hr=None,  overlap_pix = 4, boundary_pix = 2, gridtype = 'sinusoidal', in_variable_num = 12,
+    patch_shape=448, img_shape=448, mean_hr=None,  overlap_pix = 4, boundary_pix = 2, 
     num_steps=18, sigma_min=0.002, sigma_max=800, rho=7,
     S_churn=0, S_min=0, S_max=float('inf'), S_noise=1,
 ):   #num_steps=18, sigma_max=80, igma_min=0.002
@@ -101,10 +101,6 @@ def edm_sampler(
 
     sigma_min = max(sigma_min, net.sigma_min)
     sigma_max = min(sigma_max, net.sigma_max)
-        
-    if gridtype == "learnable":
-        pos_embd = torch.permute(net.model.pos_embd, (2, 1, 0)).expand(img_lr.shape[0], -1, -1, -1)          
-        img_lr = torch.cat((img_lr, pos_embd),dim=1)  
     
     # Time step discretization.
     step_indices = torch.arange(num_steps, dtype=torch.float64, device=latents.device)
@@ -113,16 +109,14 @@ def edm_sampler(
     #conditioning
     
     batch_size = img_lr.shape[0]
-    
-    # 12 input variable + 4 positional embedding, need to optimize
-    if img_lr.shape[1] != in_variable_num + 4:    
-        x_lr = torch.cat((img_lr[:,0:in_variable_num],img_lr[:,in_variable_num + 4:]), axis=1)
-    else:
-        x_lr = img_lr
+
+    # old checkpoints: torch.permute(net.model.pos_embd, (2, 1, 0)).expand(img_lr.shape[0], -1, -1, -1)
+    pos_embd = net.model.pos_embd.expand(img_lr.shape[0], -1, -1, -1)          
+    x_lr = torch.cat((img_lr, pos_embd),dim=1)      
     
     # input padding
     if (patch_shape!=img_shape):
-        input_interp = torch.nn.functional.interpolate(img_lr[:,0:in_variable_num], (patch_shape, patch_shape), mode='bilinear') 
+        input_interp = torch.nn.functional.interpolate(img_lr, (patch_shape, patch_shape), mode='bilinear') 
         x_lr = image_batching(x_lr, img_shape, img_shape, patch_shape, patch_shape, batch_size, overlap_pix, boundary_pix, input_interp)
         if mean_hr is not None:
                 mean_hr = image_batching(mean_hr, img_shape, img_shape, patch_shape, patch_shape, batch_size, overlap_pix, boundary_pix).expand(x_lr.shape[0], -1, -1, -1)
