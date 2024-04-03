@@ -108,14 +108,12 @@ def edm_sampler(
     t_steps = torch.cat([net.round_sigma(t_steps), torch.zeros_like(t_steps[:1])]) # t_N = 0
 
     # conditioning = [mean_hr, img_lr, pos_embd, global_lr]
-    batch_size = img_lr.shape[0]
-        
+    batch_size = img_lr.shape[0]       
+    pos_embd = net.model.pos_embd.expand(img_lr.shape[0], -1, -1, -1).to(device=latents.device)          
+    x_lr = torch.cat((img_lr, pos_embd),dim=1)            
     if mean_hr is not None:
         x_lr = torch.cat((mean_hr, x_lr), dim=1)
             
-    pos_embd = net.model.pos_embd.expand(img_lr.shape[0], -1, -1, -1).to(device=latents.device)          
-    x_lr = torch.cat((img_lr, pos_embd),dim=1)      
-    
     # input padding
     if (patch_shape!=img_shape):
         input_interp = torch.nn.functional.interpolate(img_lr, (patch_shape, patch_shape), mode='bilinear') 
