@@ -112,6 +112,7 @@ def edm_sampler(
     pos_embd = net.model.pos_embd.expand(img_lr.shape[0], -1, -1, -1).to(device=latents.device)          
     x_lr = torch.cat((img_lr, pos_embd),dim=1)            
     if mean_hr is not None:
+        print(mean_hr.shape, x_lr.shape)
         x_lr = torch.cat((mean_hr, x_lr), dim=1)
             
     # input padding
