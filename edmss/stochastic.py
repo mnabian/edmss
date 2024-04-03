@@ -111,7 +111,7 @@ def edm_sampler(
     batch_size = img_lr.shape[0]
 
     # old checkpoints: torch.permute(net.model.pos_embd, (2, 1, 0)).expand(img_lr.shape[0], -1, -1, -1)
-    pos_embd = net.model.pos_embd.expand(img_lr.shape[0], -1, -1, -1)          
+    pos_embd = net.model.pos_embd.expand(img_lr.shape[0], -1, -1, -1).to(device=latents.device)          
     x_lr = torch.cat((img_lr, pos_embd),dim=1)      
     
     # input padding
