@@ -106,11 +106,13 @@ def edm_sampler(
     step_indices = torch.arange(num_steps, dtype=torch.float64, device=latents.device)
     t_steps = (sigma_max ** (1 / rho) + step_indices / (num_steps - 1) * (sigma_min ** (1 / rho) - sigma_max ** (1 / rho))) ** rho
     t_steps = torch.cat([net.round_sigma(t_steps), torch.zeros_like(t_steps[:1])]) # t_N = 0
-    #conditioning
-    
-    batch_size = img_lr.shape[0]
 
-    # old checkpoints: torch.permute(net.model.pos_embd, (2, 1, 0)).expand(img_lr.shape[0], -1, -1, -1)
+    # conditioning = [mean_hr, img_lr, pos_embd, global_lr]
+    batch_size = img_lr.shape[0]
+        
+    if mean_hr is not None:
+        x_lr = torch.cat((mean_hr, x_lr), dim=1)
+            
     pos_embd = net.model.pos_embd.expand(img_lr.shape[0], -1, -1, -1).to(device=latents.device)          
     x_lr = torch.cat((img_lr, pos_embd),dim=1)      
     
@@ -118,9 +120,7 @@ def edm_sampler(
     if (patch_shape!=img_shape):
         input_interp = torch.nn.functional.interpolate(img_lr, (patch_shape, patch_shape), mode='bilinear') 
         x_lr = image_batching(x_lr, img_shape, img_shape, patch_shape, patch_shape, batch_size, overlap_pix, boundary_pix, input_interp)
-        if mean_hr is not None:
-                mean_hr = image_batching(mean_hr, img_shape, img_shape, patch_shape, patch_shape, batch_size, overlap_pix, boundary_pix).expand(x_lr.shape[0], -1, -1, -1)
-                x_lr = torch.cat((mean_hr, x_lr), dim=1)
+        
     # Main sampling loop.
     x_next = latents.to(torch.float64) * t_steps[0]   
     for i, (t_cur, t_next) in enumerate(zip(t_steps[:-1], t_steps[1:])): # 0, ..., N-1
