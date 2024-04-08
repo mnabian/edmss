@@ -11,9 +11,9 @@ Built around the same concepts that were originally proposed in the paper
 "Training Generative Adversarial Networks with Limited Data"."""
 
 import numpy as np
-import torch
-from torch_utils import persistence
-from torch_utils import misc
+import torcha
+
+from modulus.utils.generative import constant
 
 #----------------------------------------------------------------------------
 # Coefficients of various wavelet decomposition low-pass filters.
@@ -45,9 +45,9 @@ def matrix(*rows, device=None):
     elems = [x for row in rows for x in row]
     ref = [x for x in elems if isinstance(x, torch.Tensor)]
     if len(ref) == 0:
-        return misc.constant(np.asarray(rows), device=device)
+        return constant(np.asarray(rows), device=device)
     assert device is None or device == ref[0].device
-    elems = [x if isinstance(x, torch.Tensor) else misc.constant(x, shape=ref[0].shape, device=ref[0].device) for x in elems]
+    elems = [x if isinstance(x, torch.Tensor) else constant(x, shape=ref[0].shape, device=ref[0].device) for x in elems]
     return torch.stack(elems, dim=-1).reshape(ref[0].shape + (len(rows), -1))
 
 def translate2d(tx, ty, **kwargs):
@@ -111,7 +111,6 @@ def rotate2d_inv(theta, **kwargs):
 # All augmentations are disabled by default; individual augmentations can
 # be enabled by setting their probability multipliers to 1.
 
-@persistence.persistent_class
 class AugmentPipe:
     def __init__(self, p=1,
         xflip=0, yflip=0, rotate_int=0, translate_int=0, translate_int_max=0.125,
@@ -238,9 +237,9 @@ class AugmentPipe:
             Hz_pad = len(Hz) // 4
             margin = cp[:, :2, :].permute(1, 0, 2).flatten(1) # [xy, batch * idx]
             margin = torch.cat([-margin, margin]).max(dim=1).values # [x0, y0, x1, y1]
-            margin = margin + misc.constant([Hz_pad * 2 - cx, Hz_pad * 2 - cy] * 2, device=device)
-            margin = margin.max(misc.constant([0, 0] * 2, device=device))
-            margin = margin.min(misc.constant([W - 1, H - 1] * 2, device=device))
+            margin = margin + constant([Hz_pad * 2 - cx, Hz_pad * 2 - cy] * 2, device=device)
+            margin = margin.max(constant([0, 0] * 2, device=device))
+            margin = margin.min(constant([W - 1, H - 1] * 2, device=device))
             mx0, my0, mx1, my1 = margin.ceil().to(torch.int32)
 
             # Pad image and adjust origin.
@@ -248,7 +247,7 @@ class AugmentPipe:
             G_inv = translate2d((mx0 - mx1) / 2, (my0 - my1) / 2) @ G_inv
 
             # Upsample.
-            conv_weight = misc.constant(Hz[None, None, ::-1], dtype=images.dtype, device=images.device).tile([images.shape[1], 1, 1])
+            conv_weight = constant(Hz[None, None, ::-1], dtype=images.dtype, device=images.device).tile([images.shape[1], 1, 1])
             conv_pad = (len(Hz) + 1) // 2
             images = torch.stack([images, torch.zeros_like(images)], dim=4).reshape(N, C, images.shape[2], -1)[:, :, :, :-1]
             images = torch.nn.functional.conv2d(images, conv_weight.unsqueeze(2), groups=images.shape[1], padding=[0,conv_pad])
@@ -264,7 +263,7 @@ class AugmentPipe:
             images = torch.nn.functional.grid_sample(images, grid, mode='bilinear', padding_mode='zeros', align_corners=False)
 
             # Downsample and crop.
-            conv_weight = misc.constant(Hz[None, None, :], dtype=images.dtype, device=images.device).tile([images.shape[1], 1, 1])
+            conv_weight = constant(Hz[None, None, :], dtype=images.dtype, device=images.device).tile([images.shape[1], 1, 1])
             conv_pad = (len(Hz) - 1) // 2
             images = torch.nn.functional.conv2d(images, conv_weight.unsqueeze(2), groups=images.shape[1], stride=[1,2], padding=[0,conv_pad])[:, :, :, Hz_pad : -Hz_pad]
             images = torch.nn.functional.conv2d(images, conv_weight.unsqueeze(3), groups=images.shape[1], stride=[2,1], padding=[conv_pad,0])[:, :, Hz_pad : -Hz_pad, :]
@@ -275,7 +274,7 @@ class AugmentPipe:
 
         I_4 = torch.eye(4, device=device)
         M = I_4
-        luma_axis = misc.constant(np.asarray([1, 1, 1, 0]) / np.sqrt(3), device=device)
+        luma_axis = constant(np.asarray([1, 1, 1, 0]) / np.sqrt(3), device=device)
 
         if self.brightness > 0:
             w = torch.randn([N], device=device)
