@@ -11,7 +11,7 @@ Built around the same concepts that were originally proposed in the paper
 "Training Generative Adversarial Networks with Limited Data"."""
 
 import numpy as np
-import torcha
+import torch
 
 from modulus.utils.generative import constant
 
