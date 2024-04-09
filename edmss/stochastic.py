@@ -108,8 +108,8 @@ def edm_sampler(
     t_steps = torch.cat([net.round_sigma(t_steps), torch.zeros_like(t_steps[:1])]) # t_N = 0
 
     b = latents.shape[0]
-    Nx = torch.arange(self.img_shape_x).int()
-    Ny = torch.arange(self.img_shape_y).int()
+    Nx = torch.arange(img_shape).int()
+    Ny = torch.arange(img_shape).int()
     grid = torch.stack(torch.meshgrid(Nx, Ny, indexing="ij"), dim=0)[None,].expand(b, -1, -1, -1)
 
     # conditioning = [mean_hr, img_lr, global_lr, pos_embd]
