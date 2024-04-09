@@ -107,10 +107,8 @@ def edm_sampler(
     t_steps = (sigma_max ** (1 / rho) + step_indices / (num_steps - 1) * (sigma_min ** (1 / rho) - sigma_max ** (1 / rho))) ** rho
     t_steps = torch.cat([net.round_sigma(t_steps), torch.zeros_like(t_steps[:1])]) # t_N = 0
 
-    # conditioning = [mean_hr, img_lr, pos_embd, global_lr]
-    batch_size = img_lr.shape[0]       
-    pos_embd = net.model.pos_embd.expand(img_lr.shape[0], -1, -1, -1).to(device=latents.device)          
-    x_lr = torch.cat((img_lr, pos_embd),dim=1)            
+    # conditioning = [mean_hr, img_lr, global_lr, pos_embd]
+    batch_size = img_lr.shape[0]                
     if mean_hr is not None:
         x_lr = torch.cat((mean_hr.expand(x_lr.shape[0], -1, -1, -1), x_lr), dim=1)
             
