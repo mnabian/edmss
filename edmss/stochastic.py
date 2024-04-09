@@ -123,7 +123,7 @@ def edm_sampler(
     if (patch_shape!=img_shape):
         input_interp = torch.nn.functional.interpolate(img_lr, (patch_shape, patch_shape), mode='bilinear') 
         x_lr = image_batching(x_lr, img_shape, img_shape, patch_shape, patch_shape, batch_size, overlap_pix, boundary_pix, input_interp)
-        global_index = image_batching(grid, img_shape, img_shape, patch_shape, patch_shape, batch_size, overlap_pix, boundary_pix).int() 
+        global_index = image_batching(grid.float(), img_shape, img_shape, patch_shape, patch_shape, batch_size, overlap_pix, boundary_pix).int() 
             
     # Main sampling loop.
     x_next = latents.to(torch.float64) * t_steps[0]   
