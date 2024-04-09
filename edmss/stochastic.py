@@ -108,8 +108,8 @@ def edm_sampler(
     t_steps = torch.cat([net.round_sigma(t_steps), torch.zeros_like(t_steps[:1])]) # t_N = 0
 
     b = latents.shape[0]
-    Nx = torch.arange(img_shape).int()
-    Ny = torch.arange(img_shape).int()
+    Nx = torch.arange(img_shape)
+    Ny = torch.arange(img_shape)
     grid = torch.stack(torch.meshgrid(Nx, Ny, indexing="ij"), dim=0)[None,].expand(b, -1, -1, -1)
 
     # conditioning = [mean_hr, img_lr, global_lr, pos_embd]
@@ -123,7 +123,7 @@ def edm_sampler(
     if (patch_shape!=img_shape):
         input_interp = torch.nn.functional.interpolate(img_lr, (patch_shape, patch_shape), mode='bilinear') 
         x_lr = image_batching(x_lr, img_shape, img_shape, patch_shape, patch_shape, batch_size, overlap_pix, boundary_pix, input_interp)
-        global_index = image_batching(grid, img_shape, img_shape, patch_shape, patch_shape, batch_size, overlap_pix, boundary_pix) 
+        global_index = image_batching(grid, img_shape, img_shape, patch_shape, patch_shape, batch_size, overlap_pix, boundary_pix).int() 
             
     # Main sampling loop.
     x_next = latents.to(torch.float64) * t_steps[0]   
