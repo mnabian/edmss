@@ -107,18 +107,24 @@ def edm_sampler(
     t_steps = (sigma_max ** (1 / rho) + step_indices / (num_steps - 1) * (sigma_min ** (1 / rho) - sigma_max ** (1 / rho))) ** rho
     t_steps = torch.cat([net.round_sigma(t_steps), torch.zeros_like(t_steps[:1])]) # t_N = 0
 
-    # conditioning = [mean_hr, img_lr, pos_embd, global_lr]
-    batch_size = img_lr.shape[0]       
-    pos_embd = net.model.pos_embd.expand(img_lr.shape[0], -1, -1, -1).to(device=latents.device)          
-    x_lr = torch.cat((img_lr, pos_embd),dim=1)            
+    b = latents.shape[0]
+    Nx = torch.arange(img_shape)
+    Ny = torch.arange(img_shape)
+    grid = torch.stack(torch.meshgrid(Nx, Ny, indexing="ij"), dim=0)[None,].expand(b, -1, -1, -1)
+
+    # conditioning = [mean_hr, img_lr, global_lr, pos_embd]
+    batch_size = img_lr.shape[0]
+    x_lr = img_lr
     if mean_hr is not None:
         x_lr = torch.cat((mean_hr.expand(x_lr.shape[0], -1, -1, -1), x_lr), dim=1)
-            
-    # input padding
+    global_index = None        
+        
+    # input and position padding + patching
     if (patch_shape!=img_shape):
         input_interp = torch.nn.functional.interpolate(img_lr, (patch_shape, patch_shape), mode='bilinear') 
         x_lr = image_batching(x_lr, img_shape, img_shape, patch_shape, patch_shape, batch_size, overlap_pix, boundary_pix, input_interp)
-        
+        global_index = image_batching(grid.float(), img_shape, img_shape, patch_shape, patch_shape, batch_size, overlap_pix, boundary_pix).int() 
+            
     # Main sampling loop.
     x_next = latents.to(torch.float64) * t_steps[0]   
     for i, (t_cur, t_next) in enumerate(zip(t_steps[:-1], t_steps[1:])): # 0, ..., N-1
@@ -135,7 +141,7 @@ def edm_sampler(
         else:
             x_hat_batch = x_hat
         
-        denoised = net(x_hat_batch, x_lr, t_hat, class_labels).to(torch.float64)
+        denoised = net(x_hat_batch, x_lr, t_hat, class_labels, global_index=global_index).to(torch.float64)
 
         if (patch_shape!=img_shape):
             denoised = image_fuse(denoised, img_shape, img_shape, patch_shape, patch_shape, batch_size, overlap_pix, boundary_pix)     
