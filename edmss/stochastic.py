@@ -35,7 +35,7 @@ def image_batching(input,
     input_padded = image_padding(input)
     patch_num = patch_num_x*patch_num_y
     if input_interp is not None:
-        output = torch.zeros(patch_num*batch_size, input.shape[1]*2-4, patch_shape_x, patch_shape_y).cuda()
+        output = torch.zeros(patch_num*batch_size, input.shape[1]+input_interp.shape[1], patch_shape_x, patch_shape_y).cuda()
     else:
         output = torch.zeros(patch_num*batch_size, input.shape[1], patch_shape_x, patch_shape_y).cuda() 
     for x_index in range(patch_num_x):
@@ -43,7 +43,7 @@ def image_batching(input,
             x_start = x_index*(patch_shape_x-overlap_pix-boundary_pix) 
             y_start = y_index*(patch_shape_y-overlap_pix-boundary_pix)           
             if input_interp is not None:
-                output[(x_index*patch_num_x+y_index)*batch_size:(x_index*patch_num_x+y_index+1)*batch_size,] = torch.cat((input_padded[:,:,x_start:x_start+patch_shape_x, y_start:y_start+patch_shape_y], input_interp), 1)
+                output[(x_index*patch_num_x+y_index)*batch_size:(x_index*patch_num_x+y_index+1)*batch_size,] = torch.cat((input_padded[:,:,x_start:x_start+patch_shape_x, y_start:y_start+patch_shape_y], input_interp), dim=1)
             else:
                 output[(x_index*patch_num_x+y_index)*batch_size:(x_index*patch_num_x+y_index+1)*batch_size,] = input_padded[:,:,x_start:x_start+patch_shape_x, y_start:y_start+patch_shape_y] 
             #print(x_index, y_index, torch.sum(torch.abs(input[:,:,x_start:x_start+patch_shape_x, y_start:y_start+patch_shape_y])), torch.sum(torch.abs(output)))
@@ -102,10 +102,11 @@ def edm_sampler(
     img_lr,
     class_labels=None,
     randn_like=torch.randn_like,
-    img_shape = 448, 
-    patch_shape = 448, 
-    overlap_pix = 4, 
-    boundary_pix = 2, 
+    img_shape=448, 
+    patch_shape=448, 
+    overlap_pix=4, 
+    boundary_pix=2, 
+    mean_hr=None,
     num_steps=18,
     sigma_min=0.002,
     sigma_max=800,
@@ -114,7 +115,7 @@ def edm_sampler(
     S_min=0,
     S_max=float("inf"),
     S_noise=1,
-):  # num_steps=18, sigma_max=80, igma_min=0.002
+):  
     # Adjust noise levels based on what's supported by the network.
     "Proposed EDM sampler (Algorithm 2) with minor changes to enable super-resolution."
     sigma_min = max(sigma_min, net.sigma_min)
@@ -132,29 +133,35 @@ def edm_sampler(
         [net.round_sigma(t_steps), torch.zeros_like(t_steps[:1])]
     )  # t_N = 0
 
-    # conditioning
-    x_lr = img_lr
-    batch_size = img_lr.shape[0]
-        
-    # global map interpolation
-    input_interp = torch.nn.functional.interpolate(img_lr[:,0:12], (patch_shape, patch_shape), mode='bilinear') 
+    b = latents.shape[0]
+    Nx = torch.arange(img_shape)
+    Ny = torch.arange(img_shape)
+    grid = torch.stack(torch.meshgrid(Nx, Ny, indexing="ij"), dim=0)[None,].expand(b, -1, -1, -1)
 
-    # input batching
+    # conditioning = [mean_hr, img_lr, global_lr, pos_embd]
+    batch_size = img_lr.shape[0]
+    x_lr = img_lr
+    if mean_hr is not None:
+        x_lr = torch.cat((mean_hr.expand(x_lr.shape[0], -1, -1, -1), x_lr), dim=1)
+    global_index = None        
+        
+    # input and position padding + patching
     if (patch_shape!=img_shape):
+        input_interp = torch.nn.functional.interpolate(img_lr, (patch_shape, patch_shape), mode='bilinear') 
         x_lr = image_batching(x_lr, img_shape, img_shape, patch_shape, patch_shape, batch_size, overlap_pix, boundary_pix, input_interp)
+        global_index = image_batching(grid.float(), img_shape, img_shape, patch_shape, patch_shape, batch_size, overlap_pix, boundary_pix).int() 
             
     # Main sampling loop.
     x_next = latents.to(torch.float64) * t_steps[0]
     for i, (t_cur, t_next) in enumerate(zip(t_steps[:-1], t_steps[1:])):  # 0, ..., N-1
         x_cur = x_next
-
         # Increase noise temporarily.
         gamma = (
             min(S_churn / num_steps, np.sqrt(2) - 1) if S_min <= t_cur <= S_max else 0
         )
         t_hat = net.round_sigma(t_cur + gamma * t_cur)
         x_hat = x_cur + (t_hat**2 - t_cur**2).sqrt() * S_noise * randn_like(x_cur)
-            
+
         # Euler step. Perform patching operation on score tensor if patch-based generation is used
         # denoised = net(x_hat, t_hat, class_labels).to(torch.float64)    #x_lr
         
@@ -162,7 +169,7 @@ def edm_sampler(
             x_hat_batch = image_batching(x_hat, img_shape, img_shape, patch_shape, patch_shape, batch_size, overlap_pix, boundary_pix)
         else:
             x_hat_batch = x_hat
-        denoised = net(x_hat_batch, x_lr, t_hat, class_labels).to(torch.float64)
+        denoised = net(x_hat_batch, x_lr, t_hat, class_labels, global_index=global_index).to(torch.float64)
         if (patch_shape!=img_shape):
             denoised = image_fuse(denoised, img_shape, img_shape, patch_shape, patch_shape, batch_size, overlap_pix, boundary_pix)     
         d_cur = (x_hat - denoised) / t_hat
