@@ -9,8 +9,6 @@ import numpy as np
 import torch
 import math
 
-# ruff: noqa: E731
-
 def image_batching(input, 
         img_shape_x, 
         img_shape_y, 
